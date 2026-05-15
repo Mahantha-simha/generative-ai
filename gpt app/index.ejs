@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Chat Interface</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            color: #333;
+        }
+        
+        .header {
+            padding: 15px 0;
+            border-bottom: 1px solid #eaeaea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settings {
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+        
+        .settings label {
+            margin-right: 5px;
+        }
+        
+        .settings select, .settings input {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 110px);
+            margin-top: 20px;
+        }
+        
+        .conversation {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .message-group {
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-header {
+            color: #4285f4;
+        }
+        
+        .bot-header {
+            color: #188038;
+        }
+        
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .user-avatar {
+            background-color: #4285f4;
+        }
+        
+        .bot-avatar {
+            background-color: #188038;
+        }
+        
+        .message-content {
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+        
+        .user-content {
+            color: #333;
+        }
+        
+        .bot-content {
+            color: #333;
+        }
+        
+        .input-area {
+            border-top: 1px solid #eaeaea;
+            padding-top: 15px;
+            display: flex;
+        }
+        
+        textarea {
+            flex-grow: 1;
+            height: 60px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            resize: none;
+            font-family: inherit;
+            font-size: 16px;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4285f4;
+            box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
+        }
+        
+        button {
+            height: 40px;
+            align-self: flex-end;
+            padding: 0 20px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #3367d6;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        /* Code blocks styling */
+        pre {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        
+        /* For dark mode support */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #121212;
+                color: #e0e0e0;
+            }
+            
+            .header, .input-area {
+                border-color: #333;
+            }
+            
+            textarea {
+                background-color: #222;
+                color: #e0e0e0;
+                border-color: #444;
+            }
+            
+            .message-content {
+                color: #e0e0e0;
+            }
+            
+            pre {
+                background-color: #2d2d2d;
+                color: #e0e0e0;
+            }
+            
+            .settings select, .settings input {
+                background-color: #222;
+                color: #e0e0e0;
+                border-color: #444;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI Assistant</h1>
+        <div class="settings">
+            <label for="max-tokens">Max Tokens:</label>
+            <input type="number" id="max-tokens" min="50" max="1000" value="150" step="50">
+        </div>
+    </div>
+    
+    <div class="chat-container">
+        <div class="conversation" id="conversation">
+            <!-- Welcome message -->
+            <div class="message-group bot-message">
+                <div class="message-header bot-header">
+                    <div class="avatar bot-avatar">AI</div>
+                    
+                </div>
+                <div class="message-content bot-content">
+                    Hello! I'm AI. How can I help you today? (Responses are limited to 150 tokens by default)
+                </div>
+            </div>
+            
+            <!-- Existing messages will be added here -->
+            {% if conversation_history %}
+                {{ conversation_history | safe }}
+            {% endif %}
+        </div>
+        
+        <form method="POST" class="input-area" id="chat-form">
+            <textarea name="prompt" id="user-input" placeholder="Ask me anything..."></textarea>
+            <button type="submit">Send</button>
+        </form>
+    </div>
+    
+    <div class="loading" id="loading">
+        Thinking...
+    </div>
+
+    <script>
+        // Handle form submission
+        document.getElementById('chat-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const userInput = document.getElementById('user-input').value.trim();
+            if (!userInput) return;
+            
+            // Get max tokens setting
+            const maxTokens = parseInt(document.getElementById('max-tokens').value);
+            
+            // Add user message to conversation
+            addMessage('user', userInput);
+            
+            // Clear input field
+            document.getElementById('user-input').value = '';
+            
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            
+            try {
+                // Send request to backend
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        prompt: userInput,
+                        max_tokens: maxTokens 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Add bot response to conversation
+                addMessage('bot', data.response);
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('bot', 'Sorry, something went wrong. Please try again later.');
+            } finally {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+                // Scroll to bottom of conversation
+                scrollToBottom();
+            }
+        });
+
+        // Function to add message to conversation
+        function addMessage(sender, content) {
+            const conversation = document.getElementById('conversation');
+            
+            const messageGroup = document.createElement('div');
+            messageGroup.className = `message-group ${sender}-message`;
+            
+            const messageHeader = document.createElement('div');
+            messageHeader.className = `message-header ${sender}-header`;
+            
+            const avatar = document.createElement('div');
+            avatar.className = `avatar ${sender}-avatar`;
+            avatar.textContent = sender === 'user' ? 'U' : 'AI';
+            
+            messageHeader.appendChild(avatar);
+            messageHeader.appendChild(
+                document.createTextNode(sender === 'user' ? 'You' : 'AI')
+            );
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = `message-content ${sender}-content`;
+            messageContent.textContent = content;
+            
+            messageGroup.appendChild(messageHeader);
+            messageGroup.appendChild(messageContent);
+            
+            conversation.appendChild(messageGroup);
+            
+            // Scroll to bottom of conversation
+            scrollToBottom();
+        }
+
+        // Function to scroll conversation to bottom
+        function scrollToBottom() {
+            const conversation = document.getElementById('conversation');
+            conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        // Initial scroll to bottom
+        scrollToBottom();
+    </script>
+</body>
+</html>
